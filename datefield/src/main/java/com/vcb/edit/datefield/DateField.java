@@ -536,6 +536,30 @@ public class DateField extends MenuDisabledEditText {
     }
 
     /**
+     * Updates the minimum date for the selectable date range without invalidating the view state
+     * @param calendar the minimum date of the view
+     */
+    public void updateMinDate(Calendar calendar) {
+        if(null == calendar) {
+            updateMinDate((Date) null);
+            return;
+        }
+        updateMinDate(calendar.getTime());
+    }
+
+    /**
+     * Updates the maximum date for the selectable date range without invalidating the view state
+     * @param calendar the maximum date of the view
+     */
+    public void updateMaxDate(Calendar calendar) {
+        if(null == calendar) {
+            updateMaxDate((Date) null);
+            return;
+        }
+        updateMaxDate(calendar.getTime());
+    }
+
+    /**
      * Parses a given date string to date based on the current date format of the view.
      * @param date the string representation of the date to be parsed
      * @return java.util.Date - the parsed date
