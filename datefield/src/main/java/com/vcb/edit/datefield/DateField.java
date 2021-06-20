@@ -1,6 +1,7 @@
 package com.vcb.edit.datefield;
 
 import android.content.Context;
+import android.os.Build;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
@@ -20,6 +21,7 @@ import com.vcb.edit.datefield.format.types.component.contract.Index;
 import com.vcb.edit.datefield.listener.DateFieldKeyListener;
 import com.vcb.edit.datefield.listener.DateInputListener;
 
+import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -73,6 +75,7 @@ public class DateField extends MenuDisabledEditText {
         ON_INPUT,
         ON_FINISHED_INPUT
     }
+    private static final int INVALID_INT = -1;
     private static final int VOID_DEF_STYLE_ATTR = -11;
     /** umber of maximum lines supported for the view. */
     private static final int MAX_LINE = 1;
@@ -262,21 +265,84 @@ public class DateField extends MenuDisabledEditText {
         setFilters(new InputFilter[] { new InputLengthFilter(maxLength) });
     }
 
+//    @Override
+//    public void setFilters(InputFilter[] filters) {
+//        if(null != filters) {
+//            for(InputFilter filter : filters) {
+//                /** Checks whether the length filter is applied from the DateField.java code itself
+//                 * by checking if it is an instance of InputLengthFilter class. Throws if not. */
+//                if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
+//                    throwInvalidArgumentExceptionWithMessage(
+//                            "The maxLength property/ InputFilter.LengthFilter " +
+//                                    "should not be applied to DateField.java");
+//                    return;
+//
+//                }
+//            }
+//        }
+//        super.setFilters(filters);
+//    }
+
     @Override
     public void setFilters(InputFilter[] filters) {
-        if(null != filters) {
-            for(InputFilter filter : filters) {
-                /** Checks whether the length filter is applied from the DateField.java code itself
-                 * by checking if it is an instance of InputLengthFilter class. Throws if not. */
-                if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
-                    throwInvalidArgumentExceptionWithMessage(
-                            "The maxLength property/ InputFilter.LengthFilter " +
-                                    "should not be applied to DateField.java");
-                    return;
+        try {
+            List<InputFilter> filteredList = new ArrayList<>();
+            if(null != filters) {
+                for(InputFilter filter : filters) {
+                    /** Checks whether the length filter applied is not equal to length of current date format.
+                     * If the date format is null or empty, the filter will permitted to set. */
+                    if(filter instanceof InputFilter.LengthFilter
+                            && !(filter instanceof InputLengthFilter)
+                            && null != getDateFormat()
+                            && null != getDateFormat().format()) {
+                        if(getDateFormatLength() != getMaxLengthOfFilter((InputFilter.LengthFilter) filter)) {
+                            /** Not setting length filters other than the valid case. */
+                            System.out.println("Omitting filter -> " + filter.toString() + "setting the max length or min length other than the permitted value.");
+                            continue;
+                        }
+                    }
+                    filteredList.add(filter);
+//                    if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
+//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//                            if(null != getDateFormat() && null != getDateFormat().format() && getDateFormatLength() != ((InputFilter.LengthFilter) filter).getMax()) {
+//                                /** Not setting length filters other than the valid class. */
+//                                System.out.println("Omitting filter -> " + filter.toString() + "setting the max length or min length as it is prohibited from setting out side the library.");
+//                                continue;
+//                            }
+//                        }
+//                    }
+//                    filteredList.add(filter);
                 }
             }
+            if(!filteredList.isEmpty()) {
+                filters = filteredList.toArray(new InputFilter[0]);
+            }
+            super.setFilters(filters);
+        } catch (Exception ex) {
+            super.setFilters(filters);
         }
-        super.setFilters(filters);
+    }
+
+    /**
+     * Returns the max length of the filter of type InputFilter.LengthFilter
+     * @param filter the instance of InputFilter.LengthFilter
+     * @return the max length or INVALID_INT
+     */
+    private int getMaxLengthOfFilter(InputFilter.LengthFilter filter) {
+        int maxLength = INVALID_INT;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                maxLength = filter.getMax();
+            } else {
+                /** Using reflection to access the value of private variable mMax */
+                Field field = filter.getClass().getDeclaredField("mMax");
+                field.setAccessible(true);
+                maxLength = (int) field.get(filter);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maxLength;
     }
 
     /**
