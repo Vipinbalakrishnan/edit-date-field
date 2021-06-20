@@ -75,9 +75,11 @@ public class DateField extends MenuDisabledEditText {
         ON_INPUT,
         ON_FINISHED_INPUT
     }
+    /** The invalid int value. */
     private static final int INVALID_INT = -1;
+    /** Default style attribute. */
     private static final int VOID_DEF_STYLE_ATTR = -11;
-    /** umber of maximum lines supported for the view. */
+    /** Number of maximum lines supported for the view. */
     private static final int MAX_LINE = 1;
     /** The current date format of the view. */
     private DateFormat dateFormat;
