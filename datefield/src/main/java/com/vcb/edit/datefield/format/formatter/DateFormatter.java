@@ -8,8 +8,40 @@ import java.util.Locale;
 
 /**
  * Methods to parse or format the date.
+ * Set lenient as false to not round off date components.
+ * For example there is no date as 31/06/2018. If lenient set to true, this date will be parsed as
+ * 01 Jul 2018 without error.
+ * Default is lenient true.
+ * To change the lenient value use constructor DateFormatter(boolean lenient)
  */
 public class DateFormatter {
+    /**
+     * <code>True</code> if this formatter allows out-of-range field values during computation
+     * of <code>time</code> from <code>fields[]</code>.
+     */
+    private boolean lenient = true;
+    /**
+     * Constructor
+     */
+    public DateFormatter() {
+    }
+    /**
+     * Constructor
+     * @param lenient tells whether the date parsing need to be lenient.
+     */
+    public DateFormatter(boolean lenient) {
+        this.lenient = lenient;
+    }
+    /**
+     * Returns a date format object with the format specified.
+     * @param format the format on which the formatter need to create.
+     * @return DateFormat - the date format.
+     */
+    private DateFormat getDateFormatter(String format) {
+        DateFormat formatter = new SimpleDateFormat(format, Locale.US);
+        formatter.setLenient(lenient);
+        return formatter;
+    }
     /**
      * Parse a string representation of date to the date object with the specified format.
      * @param date the string representation of the date to be parsed.
@@ -18,7 +50,7 @@ public class DateFormatter {
      * @throws ParseException
      */
     public Date parse(String date, String format) throws ParseException {
-        DateFormat formatter = new SimpleDateFormat(format, Locale.US);
+        DateFormat formatter = getDateFormatter(format);
         return formatter.parse(date);
     }
     /**
@@ -28,7 +60,7 @@ public class DateFormatter {
      * @return String - the formatted date
      */
     public String format(Date date, String formatToConvert) {
-        DateFormat formatter = new SimpleDateFormat(formatToConvert, Locale.US);
+        DateFormat formatter = getDateFormatter(formatToConvert);
         return formatter.format(date);
     }
     /**

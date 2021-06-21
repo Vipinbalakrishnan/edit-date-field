@@ -1,6 +1,8 @@
 package com.vcb.edit.datefield;
 
 import android.content.Context;
+import android.content.res.TypedArray;
+import android.os.Build;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
@@ -20,6 +22,7 @@ import com.vcb.edit.datefield.format.types.component.contract.Index;
 import com.vcb.edit.datefield.listener.DateFieldKeyListener;
 import com.vcb.edit.datefield.listener.DateInputListener;
 
+import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -73,15 +76,18 @@ public class DateField extends MenuDisabledEditText {
         ON_INPUT,
         ON_FINISHED_INPUT
     }
+    /** The invalid int value. */
+    private static final int INVALID_INT = -1;
+    /** Default style attribute. */
     private static final int VOID_DEF_STYLE_ATTR = -11;
-    /** umber of maximum lines supported for the view. */
+    /** Number of maximum lines supported for the view. */
     private static final int MAX_LINE = 1;
     /** The current date format of the view. */
     private DateFormat dateFormat;
     /** The text watcher for handling the input. */
     private TextWatcher textWatcher;
-    /** Boolean that handles visibility of hint. */
-    private boolean isHintEnabled;
+    /** Boolean that handles default hint visibility. Default hint is date format of this field. */
+    private boolean showDateFormatAsHint;
     /** The current text edit mode of the view.
      * This is used to set the text from code without triggering text watcher methods. */
     private TextEditMode textEditMode = TextEditMode.DEFAULT;
@@ -94,6 +100,14 @@ public class DateField extends MenuDisabledEditText {
     private Date maxDate;
     /** List for listeners. */
     private List<DateInputListener> listeners;
+    /**
+     * <code>True</code> if this field allows out-of-range field values during computation
+     * of <code>time</code> from <code>fields[]</code>.
+     * @see #setLenient
+     * @see #isLenient
+     * @serial
+     */
+    private boolean lenient = true;
 
     /**
      * Constructor
@@ -149,7 +163,6 @@ public class DateField extends MenuDisabledEditText {
      * @param defStyleAttr the styling attributes
      */
     private void initialize(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        setDefaultHintEnabled(false);
         setDateFormat(getDefaultDateFormat());
         if(null != attrs) {
             readViewAttributes(attrs);
@@ -170,9 +183,17 @@ public class DateField extends MenuDisabledEditText {
      * @param attrs the attributes set to the view
      */
     private void readViewAttributes(@NonNull AttributeSet attrs) {
+        TypedArray array = null;
         try {
+            array = getContext().getTheme().obtainStyledAttributes(attrs, R.styleable.DateField, 0, 0);
+            setLenient(array.getBoolean(R.styleable.DateField_lenient, true));
+            setDateFormatAsHint(array.getBoolean(R.styleable.DateField_showDateFormatAsHint, false));
         } catch(Exception ex) {
             ex.printStackTrace();
+        } finally {
+            if(null != array) {
+                array.recycle();
+            }
         }
     }
 
@@ -185,6 +206,35 @@ public class DateField extends MenuDisabledEditText {
         } catch(Exception ex) {
             ex.printStackTrace();
         }
+    }
+
+    /**
+     * Copied from Calendar class.
+     * Tells whether date/time interpretation is to be lenient.
+     *
+     * @return <code>true</code> if the interpretation mode of this date field is lenient;
+     * <code>false</code> otherwise.
+     * @see #setLenient(boolean)
+     */
+    public boolean isLenient() {
+        return lenient;
+    }
+
+    /**
+     * Copied from Calendar class.
+     * Specifies whether or not date/time interpretation is to be lenient.  With
+     * lenient interpretation, a date such as "February 942, 1996" will be
+     * treated as being equivalent to the 941st day after February 1, 1996.
+     * With strict (non-lenient) interpretation, such dates will cause an exception to be
+     * thrown. The default is lenient.
+     *
+     * @param lenient <code>true</code> if the lenient mode is to be turned
+     * on; <code>false</code> if it is to be turned off.
+     * @see #isLenient()
+     * @see java.text.DateFormat#setLenient
+     */
+    public void setLenient(boolean lenient) {
+        this.lenient = lenient;
     }
 
     @Override
@@ -207,28 +257,54 @@ public class DateField extends MenuDisabledEditText {
     }
 
     /**
-     * Boolean that decides whether to show hint
+     * Boolean that decides whether to show hint as date format of this field
      * @return the boolean value
      */
-    public boolean isDefaultHintEnabled() {
-        return isHintEnabled;
+    public boolean showDateFormatAsHint() {
+        return showDateFormatAsHint;
     }
 
     /**
-     * Sets the boolean that decides whether to show hint
-     * @param hintEnabled - the boolean value
+     * Sets the boolean that decides whether to show hint as current date format
+     * @param showDateFormatAsHint - the boolean value
      */
-    public void setDefaultHintEnabled(boolean hintEnabled) {
-        isHintEnabled = hintEnabled;
+    public void setDateFormatAsHint(boolean showDateFormatAsHint) {
+        this.showDateFormatAsHint = showDateFormatAsHint;
+        setViewHint();
     }
 
     /**
-     * Sets the hint of the view
+     * Sets the hint of the view with the current date format
      */
     private void setViewHint() {
-        if(isDefaultHintEnabled()) {
-            setHint(getDateFormat().format().toLowerCase(Locale.US));
+        if(isDateFormatNull()) {
+            return;
         }
+        if(showDateFormatAsHint()) {
+            setHint(getDateFormat().format().toLowerCase(Locale.US));
+        } else if (isHintSameAsDateFormat()) {
+            /** If hint is something else set by user other than the default one, do not change it.
+             * Also the below method will clears if the function setDateFormatAsHint() is called. */
+            setHint("");
+        }
+    }
+
+    /**
+     * Returns whether the date format is null or not.
+     * @return boolean - the date format is null or not.
+     */
+    private boolean isDateFormatNull() {
+        return null == getDateFormat() || null == getDateFormat().format();
+    }
+
+    /**
+     * Returns whether the hint showing is same as date format of the DateField
+     * @return is hint same or not.
+     */
+    private boolean isHintSameAsDateFormat() {
+        return null != getHint()
+                && !isDateFormatNull()
+                && getHint().toString().equals(getDateFormat().format());
     }
 
     /**
@@ -262,21 +338,84 @@ public class DateField extends MenuDisabledEditText {
         setFilters(new InputFilter[] { new InputLengthFilter(maxLength) });
     }
 
+//    @Override
+//    public void setFilters(InputFilter[] filters) {
+//        if(null != filters) {
+//            for(InputFilter filter : filters) {
+//                /** Checks whether the length filter is applied from the DateField.java code itself
+//                 * by checking if it is an instance of InputLengthFilter class. Throws if not. */
+//                if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
+//                    throwInvalidArgumentExceptionWithMessage(
+//                            "The maxLength property/ InputFilter.LengthFilter " +
+//                                    "should not be applied to DateField.java");
+//                    return;
+//
+//                }
+//            }
+//        }
+//        super.setFilters(filters);
+//    }
+
     @Override
     public void setFilters(InputFilter[] filters) {
-        if(null != filters) {
-            for(InputFilter filter : filters) {
-                /** Checks whether the length filter is applied from the DateField.java code itself
-                 * by checking if it is an instance of InputLengthFilter class. Throws if not. */
-                if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
-                    throwInvalidArgumentExceptionWithMessage(
-                            "The maxLength property/ InputFilter.LengthFilter " +
-                                    "should not be applied to DateField.java");
-                    return;
+        try {
+            List<InputFilter> filteredList = new ArrayList<>();
+            if(null != filters) {
+                for(InputFilter filter : filters) {
+                    /** Checks whether the length filter applied is not equal to length of current date format.
+                     * If the date format is null or empty, the filter will permitted to set. */
+                    if(filter instanceof InputFilter.LengthFilter
+                            && !(filter instanceof InputLengthFilter)
+                            && null != getDateFormat()
+                            && null != getDateFormat().format()) {
+                        if(getDateFormatLength() != getMaxLengthOfFilter((InputFilter.LengthFilter) filter)) {
+                            /** Not setting length filters other than the valid case. */
+                            System.out.println("Omitting filter -> " + filter.toString() + "setting the max length or min length other than the permitted value.");
+                            continue;
+                        }
+                    }
+                    filteredList.add(filter);
+//                    if(filter instanceof InputFilter.LengthFilter && !(filter instanceof InputLengthFilter)) {
+//                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+//                            if(!isDateFormatNull() && getDateFormatLength() != ((InputFilter.LengthFilter) filter).getMax()) {
+//                                /** Not setting length filters other than the valid class. */
+//                                System.out.println("Omitting filter -> " + filter.toString() + "setting the max length or min length as it is prohibited from setting out side the library.");
+//                                continue;
+//                            }
+//                        }
+//                    }
+//                    filteredList.add(filter);
                 }
             }
+            if(!filteredList.isEmpty()) {
+                filters = filteredList.toArray(new InputFilter[0]);
+            }
+            super.setFilters(filters);
+        } catch (Exception ex) {
+            super.setFilters(filters);
         }
-        super.setFilters(filters);
+    }
+
+    /**
+     * Returns the max length of the filter of type InputFilter.LengthFilter
+     * @param filter the instance of InputFilter.LengthFilter
+     * @return the max length or INVALID_INT
+     */
+    private int getMaxLengthOfFilter(InputFilter.LengthFilter filter) {
+        int maxLength = INVALID_INT;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                maxLength = filter.getMax();
+            } else {
+                /** Using reflection to access the value of private variable mMax */
+                Field field = filter.getClass().getDeclaredField("mMax");
+                field.setAccessible(true);
+                maxLength = (int) field.get(filter);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return maxLength;
     }
 
     /**
@@ -560,6 +699,13 @@ public class DateField extends MenuDisabledEditText {
     }
 
     /**
+     * Returns a new instance of the DateFormatter.java class
+     * @return a new instance of the DateFormatter.java class
+     */
+    private DateFormatter getDateFormatter() {
+        return new DateFormatter(isLenient());
+    }
+    /**
      * Parses a given date string to date based on the current date format of the view.
      * @param date the string representation of the date to be parsed
      * @return java.util.Date - the parsed date
@@ -577,7 +723,7 @@ public class DateField extends MenuDisabledEditText {
      * @throws ParseException
      */
     public Date parse(String date, @NonNull String format) throws ParseException {
-        return new DateFormatter().parse(date, format);
+        return getDateFormatter().parse(date, format);
     }
 
     /**
@@ -587,7 +733,7 @@ public class DateField extends MenuDisabledEditText {
      * @return String - the formatted date
      */
     public String format(Date date, String dateFormat) {
-        return new DateFormatter().format(date, dateFormat);
+        return getDateFormatter().format(date, dateFormat);
     }
 
     /**
@@ -597,7 +743,7 @@ public class DateField extends MenuDisabledEditText {
      * @return String - the formatted date string with this field's date format
      */
     public String format(String date, @NonNull String currentDateFormat) throws ParseException {
-        return new DateFormatter().format(date, currentDateFormat, getDateFormat().format());
+        return getDateFormatter().format(date, currentDateFormat, getDateFormat().format());
     }
 
     /**
@@ -608,7 +754,7 @@ public class DateField extends MenuDisabledEditText {
      * @return String - the formatted date string
      */
     public String format(String date, @NonNull String currentDateFormat, @NonNull String formatToConvert) throws ParseException {
-        return new DateFormatter().format(date, currentDateFormat, formatToConvert);
+        return getDateFormatter().format(date, currentDateFormat, formatToConvert);
     }
 
     /**
@@ -649,7 +795,7 @@ public class DateField extends MenuDisabledEditText {
      * Sets the date format
      * @param dateFormat the date format to use
      */
-    public void setDateFormat(DateFormat dateFormat) {
+    public void setDateFormat(@NonNull DateFormat dateFormat) {
         this.dateFormat = dateFormat;
         invalidateState();
     }
