@@ -33,8 +33,10 @@ public class MainActivity extends AppCompatActivity {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.MONTH, 2);
         dateField.setMaxDate(calendar.getTime());
-        dateField.setDate("10/05/2021");
+//        dateField.setDate("10/05/2021");
         dateField.setDate(new Date());
+        dateField.setLenient(false);
+        dateField.setDateFormatAsHint(true);
     }
 
     private void register() {
@@ -66,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         if(dateField.isValidInput()) {
             Date dateObject = dateField.getDate();
             String dateString = dateField.getDateString();
-            Log.d("Date Field", "Date Field date dateString" + dateString);
+            Log.d("Date Field", "Date Field date dateString " + dateString);
         }
     }
 }

@@ -25,6 +25,8 @@
         app:layout_constraintRight_toRightOf="parent"
         android:layout_margin="10dp"
         android:textColor="@color/black"
-        android:textSize="14sp" />
+        android:textSize="14sp"
+        app:lenient="false"
+        app:showDateFormatAsHint="false"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
